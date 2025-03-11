@@ -4,6 +4,7 @@
 """
 #
 ##
+import os
 import time
 import torch
 import torch._dynamo
@@ -15,8 +16,10 @@ from torch.utils.data import TensorDataset, DataLoader
 from copy import deepcopy
 from sklearn.metrics import accuracy_score
 
+from preset import preset
+
 #
-##
+
 torch.set_float32_matmul_precision("high")
 torch._dynamo.config.cache_size_limit = 65536
 
@@ -30,7 +33,9 @@ def train(model: Module,
           var_threshold: float,
           var_batch_size: int,
           var_epochs: int,
-          device: device):
+          device: device,
+          model_type: str,
+          run_: int):
     
     """
     [description]
@@ -45,6 +50,8 @@ def train(model: Module,
     : var_batch_size: batch size of each training step
     : var_epochs: number of epochs to train model
     : device: device (cuda or cpu) to train model
+    : model_type: type of model (e.g., lstm, cnn)
+    : run_: run number of the model. Want to save every 2nd run.
     [return]
     : var_best_weight: weights of trained model
     """
@@ -138,4 +145,9 @@ def train(model: Module,
             var_best_weight = deepcopy(model.state_dict())
     #
     ##
+
+    if (run_+1) % 2 == 0:  # save the best weights after every 2 runs
+        save_file_name = model_type + "_best_weight_run-" + str(run_+1) + ".pt"
+        torch.save(var_best_weight, os.path.join(preset["path"]["model_wt"], save_file_name))
+
     return var_best_weight

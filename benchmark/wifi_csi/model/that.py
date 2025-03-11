@@ -317,7 +317,7 @@ def run_that(data_train_x,
     """
     #
     ##
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(preset["device"])
     #
     ##
     ## ============================================ Preprocess ============================================
@@ -375,7 +375,10 @@ def run_that(data_train_x,
                                 var_threshold = preset["nn"]["threshold"],
                                 var_batch_size = preset["nn"]["batch_size"],
                                 var_epochs = preset["nn"]["epoch"],
-                                device = device)
+                                device = device,
+                                model_type = "THAT",
+                                run_ = var_r,
+                                )
         #
         var_time_1 = time.time()
         #

@@ -12,8 +12,8 @@ from torch.utils.data import TensorDataset
 from ptflops import get_model_complexity_info
 from sklearn.metrics import classification_report, accuracy_score
 #
-from train import train
-from preset import preset
+from ..train import train
+from ..preset import preset
 
 #
 ##

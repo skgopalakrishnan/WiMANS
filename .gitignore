@@ -11,3 +11,8 @@
 result/
 __pycache__/
 .DS_Store
+
+# exceptions
+!benchmark/wifi_csi/saved_models/THAT_best_weight_activity.pt
+!benchmark/wifi_csi/saved_models/THAT_best_weight_location.pt
+!benchmark/wifi_csi/saved_models/THAT_best_weight_identity.pt

@@ -16,7 +16,7 @@ from torch.utils.data import TensorDataset, DataLoader
 from copy import deepcopy
 from sklearn.metrics import accuracy_score
 
-from preset import preset
+from .preset import preset
 
 #
 
@@ -63,7 +63,6 @@ def train(model: Module,
     ##
     var_best_accuracy = 0
     var_best_weight = None
-    trials = 0  # counter for early stopping  
     #
     ##
     for var_epoch in range(var_epochs):
@@ -71,7 +70,6 @@ def train(model: Module,
         ## ---------------------------------------- Train -----------------------------------------
         #
         var_time_e0 = time.time()
-        epoch_losses = []
         #
         model.train()
         #
@@ -92,13 +90,44 @@ def train(model: Module,
             var_loss_train.backward()
             #
             optimizer.step()
-            #
+        #
+        ##
+        predict_train_y = (torch.sigmoid(predict_train_y) > var_threshold).float()
+        #
+        data_batch_y = data_batch_y.detach().cpu().numpy()
+        predict_train_y = predict_train_y.detach().cpu().numpy()
+        #
+        predict_train_y = predict_train_y.reshape(-1, data_batch_y.shape[-1])
+        data_batch_y = data_batch_y.reshape(-1, data_batch_y.shape[-1])
+        var_accuracy_train = accuracy_score(data_batch_y.astype(int), 
+                                            predict_train_y.astype(int))
+        #
         ## -------------------------------------- Evaluate ----------------------------------------
         #
-        ## Evaluate on training set
-        var_accuracy_train, var_loss_train = evaluate(model, loss, data_train_loader, var_threshold, device)
-        ## Evaluate on test set
-        var_accuracy_test, var_loss_test = evaluate(model, loss, data_test_loader, var_threshold, device)
+        model.eval()
+        #
+        with torch.no_grad():
+            #
+            ##
+            data_test_x, data_test_y = next(iter(data_test_loader))
+            data_test_x = data_test_x.to(device)
+            data_test_y = data_test_y.to(device)
+            #
+            predict_test_y = model(data_test_x)
+            #
+            var_loss_test = loss(predict_test_y, 
+                                 data_test_y.reshape(data_test_y.shape[0], -1).float())
+            #
+            predict_test_y = (torch.sigmoid(predict_test_y) > var_threshold).float()
+            #
+            data_test_y = data_test_y.detach().cpu().numpy()
+            predict_test_y = predict_test_y.detach().cpu().numpy()
+            #
+            predict_test_y = predict_test_y.reshape(-1, data_test_y.shape[-1])
+            data_test_y = data_test_y.reshape(-1, data_test_y.shape[-1])
+            #
+            var_accuracy_test = accuracy_score(data_test_y.astype(int), 
+                                               predict_test_y.astype(int))
         #
         ## ---------------------------------------- Print -----------------------------------------
         #
@@ -112,71 +141,13 @@ def train(model: Module,
         ##
         if var_accuracy_test > var_best_accuracy:
             #
-            trials = 0
             var_best_accuracy = var_accuracy_test
             var_best_weight = deepcopy(model.state_dict())
-        else:
-            #
-            trials += 1
-            if trials > preset["nn"]["early_stop"]:
-                print("Early stopping at epoch", var_epoch)
-                break
     #
     ##
-    print("Best accuracy:", var_best_accuracy)
-    print("Best loss:", var_loss_test)
-    #
+
     if (run_+1) % 2 == 0:  # save the best weights after every 2 runs
         save_file_name = model_type + "_best_weight_run-" + str(run_+1) + ".pt"
         torch.save(var_best_weight, os.path.join(preset["path"]["model_wt"], save_file_name))
 
     return var_best_weight
-
-
-def evaluate(model: Module,
-             loss: Module,
-             data_test_loader: DataLoader,
-             var_threshold: float,
-             device: device):
-    """[description]
-    : generic evaluation function for WiFi-based models
-    [parameter]
-    : model: Pytorch model to evaluate
-    : loss: loss function to train model (e.g., BCEWithLogitsLoss)
-    : data_test_loader: data loader for the set to be evaluated on
-    : var_threshold: threshold to binarize sigmoid outputs
-    : device: device (cuda or cpu) to train model
-    [return]
-    : var_accuracy_test: accuracy over the test set
-    : var_loss_test: loss over the test set
-    """
-    
-    model.eval()
-    var_accuracy_test = []
-    var_loss_test = []
-    #
-    with torch.no_grad():
-        for test_data_batch in data_test_loader:
-            data_test_x, data_test_y = test_data_batch
-            data_test_x = data_test_x.to(device)
-            data_test_y = data_test_y.to(device)
-            #
-            predict_test_y = model(data_test_x)
-            #
-            var_loss_test.append(loss(predict_test_y, 
-                                        data_test_y.reshape(data_test_y.shape[0], -1).float()))
-            #
-            predict_test_y = (torch.sigmoid(predict_test_y) > var_threshold).float()
-            #
-            data_test_y = data_test_y.detach().cpu().numpy()
-            predict_test_y = predict_test_y.detach().cpu().numpy()
-            #
-            predict_test_y = predict_test_y.reshape(data_test_y.shape[0], -1)
-            data_test_y = data_test_y.reshape(data_test_y.shape[0], -1)
-            #
-            var_accuracy_test.append(accuracy_score(data_test_y.astype(int), 
-                                                    predict_test_y.astype(int)))
-    var_accuracy_test = sum(var_accuracy_test) / len(var_accuracy_test)
-    var_loss_test = sum(var_loss_test) / len(var_loss_test)
-    #
-    return var_accuracy_test, var_loss_test

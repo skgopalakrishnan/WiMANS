@@ -11,9 +11,11 @@ import numpy as np
 from torch.utils.data import TensorDataset
 from ptflops import get_model_complexity_info
 from sklearn.metrics import classification_report, accuracy_score
+from sklearn.preprocessing import StandardScaler
 #
 from train import train
 from preset import preset
+from preprocess import reduce_dimensionality
 
 #
 ##
@@ -25,7 +27,9 @@ class ABLSTM(torch.nn.Module):
     ##
     def __init__(self,
                  var_x_shape,
-                 var_y_shape):
+                 var_y_shape, 
+                 hidden_dim = 256, 
+                 drop = 0.5):
         #
         ##
         super(ABLSTM, self).__init__()
@@ -34,25 +38,25 @@ class ABLSTM(torch.nn.Module):
         var_dim_output = var_y_shape[-1]
         #
         self.layer_bilstm = torch.nn.LSTM(input_size = var_dim_input,
-                                          hidden_size = 512,
+                                          hidden_size = hidden_dim,
                                           batch_first = True,
                                           bidirectional = True)
         #
         ##
-        self.layer_linear = torch.nn.Linear(2*512, 2*512)
+        self.layer_linear = torch.nn.Linear(2*hidden_dim, 2*hidden_dim)
         self.layer_activation = torch.nn.LeakyReLU()
         #
         ##
-        self.layer_output = torch.nn.Linear(2*512, var_dim_output)
+        self.layer_output = torch.nn.Linear(2*hidden_dim, var_dim_output)
         #
         ##
         self.layer_softmax = torch.nn.Softmax(dim = -2)
         #
         ##
-        self.layer_pooling = torch.nn.AvgPool1d(8, 8)
+        self.layer_pooling = torch.nn.AvgPool1d(10, 10)
         #
         self.layer_norm = torch.nn.BatchNorm1d(var_dim_input)
-        self.layer_dropout = torch.nn.Dropout(0.6)  
+        self.layer_dropout = torch.nn.Dropout(drop)  
 
         torch.nn.init.xavier_uniform_(self.layer_linear.weight)
         torch.nn.init.xavier_uniform_(self.layer_output.weight)
@@ -96,7 +100,8 @@ def run_ablstm(data_train_x,
                data_train_y,
                data_test_x,
                data_test_y,
-               var_repeat = 10):
+               var_repeat = 10, 
+               preprocessed = False):
     """
     [description]
     : run WiFi-based model ABLSTM
@@ -106,19 +111,33 @@ def run_ablstm(data_train_x,
     : data_test_x: numpy array, CSI amplitude to test model
     : data_test_y: numpy array, labels to test model
     : var_repeat: int, number of repeated experiments
+    : preprocessed: bool, whether data is preprocessed
     [return]
     : result: dict, results of experiments
     """
     #
     ##
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(preset["device"])
     #
     ##
     ## ============================================ Preprocess ============================================
     #
     ##
-    data_train_x = data_train_x.reshape(data_train_x.shape[0], data_train_x.shape[1], -1)
-    data_test_x = data_test_x.reshape(data_test_x.shape[0], data_test_x.shape[1], -1)
+    if not preprocessed: 
+        data_train_x = data_train_x.reshape(data_train_x.shape[0], data_train_x.shape[1], -1)
+        data_test_x = data_test_x.reshape(data_test_x.shape[0], data_test_x.shape[1], -1)
+        #
+        ## reduce dimensionality
+        data = np.concatenate([data_train_x, data_test_x], axis = 0)
+        data = reduce_dimensionality(data, new_chan = 10, new_seq_len = 50)
+        data_train_x, data_test_x = data[:data_train_x.shape[0]], data[data_train_x.shape[0]:]
+        #
+        ## scaling
+        scaler = StandardScaler()
+        data_train_x = scaler.fit_transform(data_train_x.reshape(-1, data_train_x.shape[-1])).reshape(data_train_x.shape)
+        data_test_x = scaler.transform(data_test_x.reshape(-1, data_test_x.shape[-1])).reshape(data_test_x.shape)
+    else:
+        assert len(np.shape(data_train_x)) == 3
     #
     ## shape for model
     var_x_shape, var_y_shape = data_train_x[0].shape, data_train_y[0].reshape(-1).shape
@@ -169,7 +188,10 @@ def run_ablstm(data_train_x,
                                 var_threshold = preset["nn"]["threshold"],
                                 var_batch_size = preset["nn"]["batch_size"],
                                 var_epochs = preset["nn"]["epoch"],
-                                device = device)
+                                device = device,
+                                model_type = "ABLSTM", 
+                                run_ = var_r,
+                                )
         #
         var_time_1 = time.time()
         #

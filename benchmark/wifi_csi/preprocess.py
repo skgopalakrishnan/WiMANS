@@ -8,6 +8,9 @@ import os
 import argparse
 import numpy as np
 import scipy.io as scio
+import torch
+import torch.nn.functional as F
+from sklearn.decomposition import PCA
 
 #
 ##
@@ -73,6 +76,41 @@ def parse_args():
     var_args.add_argument("--dir_amp", default = "dataset/wifi_csi/amp", type = str)
     #
     return var_args.parse_args()
+
+#
+##
+def reduce_dimensionality(data_x, new_chan=10, new_seq_len=100):
+    """
+    [description]
+    : reduce dimensionality of WiFi CSI amplitudes
+    [parameter]
+    : data_x: numpy array, WiFi CSI data
+    [return]
+    : data_x_reduced: numpy array, simplified WiFi CSI data
+    """
+    #
+    ## 
+    cur_seq_len = data_x.shape[1]
+    #
+    ## downsample
+    x = torch.tensor(data_x).float()
+    x = x.permute(0, 2, 1)  # [batch_size, seq_len, channels] -> [batch_size, channels, seq_len]
+    x_downsampled = F.avg_pool1d(x, kernel_size=30, stride=int(cur_seq_len/new_seq_len))
+    print("Post downsampling shape:", x_downsampled.shape)
+    x = x_downsampled.permute(0, 2, 1)
+    x = x.numpy()
+    #
+    ## PCA
+    if new_chan >= x.shape[2]:
+        print("No PCA needed")
+        return x
+    else:
+        x = x.reshape(x.shape[0], -1)  # [batch_size, seq_len, channels] -> [batch_size, seq_len*channels]
+        x_pca = PCA(n_components=new_chan*new_seq_len).fit_transform(x)
+        print("Post PCA shape:", x_pca.shape)
+        x = x_pca.reshape(x_pca.shape[0], new_seq_len, -1)
+        #
+        return x
 
 #
 ##

@@ -11,9 +11,11 @@ import numpy as np
 from torch.utils.data import TensorDataset
 from ptflops import get_model_complexity_info
 from sklearn.metrics import classification_report, accuracy_score
+from sklearn.preprocessing import StandardScaler
 #
 from train import train
 from preset import preset
+from preprocess import reduce_dimensionality
 
 #
 ##
@@ -41,6 +43,8 @@ class LSTMM(torch.nn.Module):
                                         hidden_size = 512, 
                                         batch_first = True)
         #
+        self.dropout = torch.nn.Dropout(0.25)  # 10% probability of dropout
+        #
         self.layer_linear = torch.nn.Linear(512, var_dim_output)
 
     #
@@ -60,6 +64,8 @@ class LSTMM(torch.nn.Module):
         #
         var_t = var_t[:, -1, :]
         #
+        var_t = self.dropout(var_t)
+        #
         var_t = self.layer_linear(var_t)
         #
         var_output = var_t
@@ -72,7 +78,8 @@ def run_lstm(data_train_x,
              data_train_y,
              data_test_x,
              data_test_y,
-             var_repeat = 10):
+             var_repeat = 10, 
+             preprocessed=False):
     """
     [description]
     : run WiFi-based model LSTM
@@ -82,19 +89,33 @@ def run_lstm(data_train_x,
     : data_test_x: numpy array, CSI amplitude to test model
     : data_test_y: numpy array, labels to test model
     : var_repeat: int, number of repeated experiments
+    : preprocessed: bool, whether data is preprocessed
     [return]
     : result: dict, results of experiments
     """
     #
     ##
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(preset["device"])
     #
     ##
     ## ============================================ Preprocess ============================================
     #
     ##
-    data_train_x = data_train_x.reshape(data_train_x.shape[0], data_train_x.shape[1], -1)
-    data_test_x = data_test_x.reshape(data_test_x.shape[0], data_test_x.shape[1], -1)
+    if not preprocessed: 
+        data_train_x = data_train_x.reshape(data_train_x.shape[0], data_train_x.shape[1], -1)
+        data_test_x = data_test_x.reshape(data_test_x.shape[0], data_test_x.shape[1], -1)
+        #
+        ## reduce dimensionality
+        data = np.concatenate([data_train_x, data_test_x], axis = 0)
+        data = reduce_dimensionality(data, new_chan = 10, new_seq_len = 50)
+        data_train_x, data_test_x = data[:data_train_x.shape[0]], data[data_train_x.shape[0]:]
+        #
+        ## scaling
+        scaler = StandardScaler()
+        data_train_x = scaler.fit_transform(data_train_x.reshape(-1, data_train_x.shape[-1])).reshape(data_train_x.shape)
+        data_test_x = scaler.transform(data_test_x.reshape(-1, data_test_x.shape[-1])).reshape(data_test_x.shape)
+    else:
+        assert len(np.shape(data_train_x)) == 3
     #
     ## shape for model
     var_x_shape, var_y_shape = data_train_x[0].shape, data_train_y[0].reshape(-1).shape
@@ -145,7 +166,10 @@ def run_lstm(data_train_x,
                                 var_threshold = preset["nn"]["threshold"],
                                 var_batch_size = preset["nn"]["batch_size"],
                                 var_epochs = preset["nn"]["epoch"],
-                                device = device)
+                                device = device,
+                                model_type = "LSTM", 
+                                run_ = var_r,
+                                )
         #
         var_time_1 = time.time()
         #

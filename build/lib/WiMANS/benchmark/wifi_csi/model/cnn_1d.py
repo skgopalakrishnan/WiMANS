@@ -1,6 +1,6 @@
 """
-[file]          cnn_lstm.py
-[description]   implement and evaluate WiFi-based model CLSTM
+[file]          cnn_1d.py
+[description]   implement and evaluate WiFi-based model CNN-1D
 """
 #
 ##
@@ -12,15 +12,15 @@ from torch.utils.data import TensorDataset
 from ptflops import get_model_complexity_info
 from sklearn.metrics import classification_report, accuracy_score
 #
-from train import train
-from preset import preset
+from ..train import train
+from ..preset import preset
 
 #
 ##
 ## ------------------------------------------------------------------------------------------ ##
-## --------------------------------------- CLSTM -------------------------------------------- ##
+## --------------------------------------- CNN-1D ------------------------------------------- ##
 ## ------------------------------------------------------------------------------------------ ##
-class CNN_LSTM(torch.nn.Module):
+class CNN_1D(torch.nn.Module):
     #
     ##
     def __init__(self,
@@ -28,44 +28,37 @@ class CNN_LSTM(torch.nn.Module):
                  var_y_shape):
         #
         ##
-        super(CNN_LSTM, self).__init__()
+        super(CNN_1D, self).__init__()
         #
         var_dim_input = var_x_shape[-1]
         var_dim_output = var_y_shape[-1]
         #
         self.layer_norm = torch.nn.BatchNorm1d(var_dim_input)
-        self.layer_norm_0 = torch.nn.BatchNorm1d(64)
-        self.layer_norm_1 = torch.nn.BatchNorm1d(128)
-        self.layer_norm_2 = torch.nn.BatchNorm1d(256)
         #
+        ##
         self.layer_cnn_1d_0 = torch.nn.Conv1d(in_channels = var_dim_input, 
-                                              out_channels = 64,            # 64
-                                              kernel_size = 128,            # 128
-                                              stride = 8)                   # 8
+                                              out_channels = 128,
+                                              kernel_size = 29,
+                                              stride = 13)
         #
-        self.layer_cnn_1d_1 = torch.nn.Conv1d(in_channels = 64,             
-                                              out_channels = 128,           # 128
-                                              kernel_size = 64,             # 64
-                                              stride = 4)                   # 4
+        self.layer_cnn_1d_1 = torch.nn.Conv1d(in_channels = 128, 
+                                              out_channels = 256,
+                                              kernel_size = 15,
+                                              stride = 7)
         #
-        self.layer_cnn_1d_2 = torch.nn.Conv1d(in_channels = 128, 
-                                              out_channels = 256,           # 256
-                                              kernel_size = 32,             # 32
-                                              stride = 2)                   # 2
-        #
-        self.layer_lstm = torch.nn.LSTM(input_size = 256,
-                                        hidden_size = 512,                  # 512
-                                        batch_first = True)
+        self.layer_cnn_1d_2 = torch.nn.Conv1d(in_channels = 256, 
+                                              out_channels = 512,
+                                              kernel_size = 3,
+                                              stride = 1)
         #
         ##
         self.layer_linear = torch.nn.Linear(512, var_dim_output)
         #
         ##
-        self.layer_dropout = torch.nn.Dropout(0.5)      # 0.5
+        self.layer_dropout = torch.nn.Dropout(0.2)
         #
-        self.layer_leakyrelu = torch.nn.LeakyReLU()
+        self.layer_relu = torch.nn.ReLU()
         #
-        ##
         torch.nn.init.xavier_uniform_(self.layer_cnn_1d_0.weight)
         torch.nn.init.xavier_uniform_(self.layer_cnn_1d_1.weight)
         torch.nn.init.xavier_uniform_(self.layer_cnn_1d_2.weight)
@@ -83,41 +76,37 @@ class CNN_LSTM(torch.nn.Module):
         var_t = self.layer_norm(var_t)
         #
         var_t = self.layer_cnn_1d_0(var_t)
-        var_t = self.layer_leakyrelu(var_t)
-        var_t = self.layer_norm_0(var_t)
-        #
-        var_t = self.layer_cnn_1d_1(var_t)
-        var_t = self.layer_leakyrelu(var_t)
-        var_t = self.layer_norm_1(var_t)
-        #
-        var_t = self.layer_cnn_1d_2(var_t)
-        var_t = self.layer_leakyrelu(var_t)
-        var_t = self.layer_norm_2(var_t)
-        #
-        var_t = torch.permute(var_t, (0, 2, 1))
-        #
-        var_t, _ = self.layer_lstm(var_t)
-        #
-        var_t = var_t[:, -1, :]
-        #
+        var_t = self.layer_relu(var_t)
         var_t = self.layer_dropout(var_t)
-        #
+
+        var_t = self.layer_cnn_1d_1(var_t)
+        var_t = self.layer_relu(var_t)
+        var_t = self.layer_dropout(var_t)
+
+        var_t = self.layer_cnn_1d_2(var_t)
+        var_t = self.layer_relu(var_t)
+        var_t = self.layer_dropout(var_t)
+
+        var_t = torch.mean(var_t, dim = -1)
+        
+        var_t = self.layer_dropout(var_t)
+
         var_t = self.layer_linear(var_t)
         #
         var_output = var_t
         #
         return var_output
-     
+
 #
 ##
-def run_cnn_lstm(data_train_x,
-                 data_train_y,
-                 data_test_x,
-                 data_test_y,
-                 var_repeat = 10):
+def run_cnn_1d(data_train_x,
+               data_train_y,
+               data_test_x,
+               data_test_y,
+               var_repeat = 10):
     """
     [description]
-    : run WiFi-based model CLSTM
+    : run WiFi-based model CNN-1D
     [parameter]
     : data_train_x: numpy array, CSI amplitude to train model
     : data_train_y: numpy array, labels to train model
@@ -154,7 +143,7 @@ def run_cnn_lstm(data_train_x,
     result_time_test = []
     #
     ##
-    var_macs, var_params = get_model_complexity_info(CNN_LSTM(var_x_shape, var_y_shape), 
+    var_macs, var_params = get_model_complexity_info(CNN_1D(var_x_shape, var_y_shape), 
                                                      var_x_shape, as_strings = False)
     #
     print("Parameters:", var_params, "- FLOPs:", var_macs * 2)
@@ -167,19 +156,19 @@ def run_cnn_lstm(data_train_x,
         #
         torch.random.manual_seed(var_r + 39)
         #
-        model_cnn_lstm = torch.compile(CNN_LSTM(var_x_shape, var_y_shape).to(device))
+        model_cnn_1d = torch.compile(CNN_1D(var_x_shape, var_y_shape).to(device))
         #
-        optimizer = torch.optim.Adam(model_cnn_lstm.parameters(), 
+        optimizer = torch.optim.Adam(model_cnn_1d.parameters(), 
                                      lr = preset["nn"]["lr"],
                                      weight_decay = 0)
         #
-        loss = torch.nn.BCEWithLogitsLoss(pos_weight = torch.tensor([8] * var_y_shape[-1]).to(device))
+        loss = torch.nn.BCEWithLogitsLoss(pos_weight = torch.tensor([6] * var_y_shape[-1]).to(device))
         #
         var_time_0 = time.time()
         #
         ## ---------------------------------------- Train -----------------------------------------
         #
-        var_best_weight = train(model = model_cnn_lstm, 
+        var_best_weight = train(model = model_cnn_1d, 
                                 optimizer = optimizer, 
                                 loss = loss, 
                                 data_train_set = data_train_set,
@@ -193,10 +182,10 @@ def run_cnn_lstm(data_train_x,
         #
         ## ---------------------------------------- Test ------------------------------------------
         #
-        model_cnn_lstm.load_state_dict(var_best_weight)
+        model_cnn_1d.load_state_dict(var_best_weight)
         #
         with torch.no_grad():
-            predict_test_y = model_cnn_lstm(torch.from_numpy(data_test_x).to(device))
+            predict_test_y = model_cnn_1d(torch.from_numpy(data_test_x).to(device))
         #
         predict_test_y = (torch.sigmoid(predict_test_y) > preset["nn"]["threshold"]).float()
         predict_test_y = predict_test_y.detach().cpu().numpy()
@@ -213,7 +202,7 @@ def run_cnn_lstm(data_train_x,
         result_acc = accuracy_score(data_test_y_c.astype(int), 
                                     predict_test_y_c.astype(int))
         #
-        ##
+        ## Report
         result_dict = classification_report(data_test_y_c, 
                                             predict_test_y_c, 
                                             digits = 6, 

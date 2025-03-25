@@ -32,7 +32,7 @@ preset = {
         "data_x": "/Users/shreevanth/Documents/PhD_work/Adversarial_CSI/data/WiMANS/dataset/wifi_csi/amp",                     # directory of CSI amplitude files
         "data_y": "/Users/shreevanth/Documents/PhD_work/Adversarial_CSI/data/WiMANS/dataset/annotation.csv",                   # path of annotation file
         "save": "/Users/shreevanth/Documents/PhD_work/Adversarial_CSI/data/WiMANS/dataset/result.json",                        # path to save results
-        "model_wt": "/Users/shreevanth/Documents/PhD_work/Adversarial_CSI/third_party/WiMANS/benchmark/wifi_csi/saved_models", # path to save results
+        "model_wt": "/Users/shreevanth/Documents/PhD_work/Adversarial_CSI/third_party/WiMANS/WiMANS/benchmark/wifi_csi/saved_models", # path to save results
     },
     #
     ## data selection for experiments

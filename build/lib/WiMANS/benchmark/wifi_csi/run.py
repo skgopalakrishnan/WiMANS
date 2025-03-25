@@ -7,12 +7,15 @@
 import json
 import argparse
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 #
-from model import *
-from preset import preset
-from load_data import load_data_x, load_data_y, encode_data_y
-from preprocess import reduce_dimensionality
+try:  # try relative imports in case of running as a module
+    from .model import *
+    from .preset import preset
+    from .load_data import load_data_x, load_data_y, encode_data_y
+except ImportError:  # for debugger
+    from third_party.WiMANS.benchmark.wifi_csi.model import *
+    from third_party.WiMANS.benchmark.wifi_csi.preset import preset
+    from third_party.WiMANS.benchmark.wifi_csi.load_data import load_data_x, load_data_y, encode_data_y
 #
 ##
 def parse_args():
@@ -56,33 +59,14 @@ def run():
     ## load CSI amplitude
     data_x = load_data_x(preset["path"]["data_x"], var_label_list)
     #
-    ## preprocess data
-    data_x = data_x.reshape(data_x.shape[0], data_x.shape[1], -1)
-    # data_x = reduce_dimensionality(data_x, new_chan=270, new_seq_len=100)
-    ## sub-select features
-    data_x = data_x[:, ::10, ::10]
-    print("Data shape:", data_x.shape)
-    #
     ## encode labels
     data_y = encode_data_y(data_pd_y, var_task)
     #
-    ## a training set (70%), a validation set (15%), and a test set (15%)
+    ## a training set (80%) and a test set (20%)
     data_train_x, data_test_x, data_train_y, data_test_y = train_test_split(data_x, data_y, 
-                                                                            test_size = preset["train_test_split"], 
+                                                                            test_size = 0.2, 
                                                                             shuffle = True, 
                                                                             random_state = 39)
-    #
-    ## split the test set into a validation set (50%) and a test set (50%)
-    data_val_x, _, data_val_y, _ = train_test_split(data_test_x, data_test_y, 
-                                                    test_size = 0.5, 
-                                                    shuffle = True, 
-                                                    random_state = 39)
-    #
-    ## Apply standard scaling to normalize data
-    scaler = StandardScaler()
-    data_train_x = scaler.fit_transform(data_train_x.reshape(-1, data_train_x.shape[-1])).reshape(data_train_x.shape)
-    data_val_x = scaler.transform(data_val_x.reshape(-1, data_val_x.shape[-1])).reshape(data_val_x.shape)
-    data_test_x = scaler.transform(data_test_x.reshape(-1, data_test_x.shape[-1])).reshape(data_test_x.shape)
     #
     ## select a WiFi-based model
     if var_model == "ST-RF": run_model = run_strf
@@ -103,7 +87,7 @@ def run():
     #
     ## run WiFi-based model
     result = run_model(data_train_x, data_train_y, 
-                       data_val_x, data_val_y, var_repeat, preprocessed=True)
+                       data_test_x, data_test_y, var_repeat)
     #
     ##
     result["model"] = var_model

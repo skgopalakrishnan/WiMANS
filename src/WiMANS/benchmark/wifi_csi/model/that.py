@@ -12,11 +12,12 @@ import numpy as np
 from torch.utils.data import TensorDataset
 from ptflops import get_model_complexity_info
 from sklearn.metrics import classification_report, accuracy_score
-from sklearn.preprocessing import StandardScaler
 #
-from train import train
-from preset import preset
-from preprocess import reduce_dimensionality
+from ..train import train
+# from third_party.WiMANS.benchmark.wifi_csi.train import train
+
+# from WiMANS.benchmark.wifi_csi.preset import preset
+from ..preset import preset
 
 #
 ##
@@ -304,8 +305,7 @@ def run_that(data_train_x,
              data_train_y,
              data_test_x,
              data_test_y,
-             var_repeat = 10, 
-             preprocessed = False):
+             var_repeat = 10):
     """
     [description]
     : run WiFi-based model THAT
@@ -315,7 +315,6 @@ def run_that(data_train_x,
     : data_test_x: numpy array, CSI amplitude to test model
     : data_test_y: numpy array, labels to test model
     : var_repeat: int, number of repeated experiments
-    : preprocessed: boolean, whether data is preprocessed
     [return]
     : result: dict, results of experiments
     """
@@ -327,21 +326,8 @@ def run_that(data_train_x,
     ## ============================================ Preprocess ============================================
     #
     ##
-    if not preprocessed: 
-        data_train_x = data_train_x.reshape(data_train_x.shape[0], data_train_x.shape[1], -1)
-        data_test_x = data_test_x.reshape(data_test_x.shape[0], data_test_x.shape[1], -1)
-        #
-        ## reduce dimensionality
-        data = np.concatenate([data_train_x, data_test_x], axis = 0)
-        data = reduce_dimensionality(data, new_chan = 10, new_seq_len = 50)
-        data_train_x, data_test_x = data[:data_train_x.shape[0]], data[data_train_x.shape[0]:]
-        #
-        ## scaling
-        scaler = StandardScaler()
-        data_train_x = scaler.fit_transform(data_train_x.reshape(-1, data_train_x.shape[-1])).reshape(data_train_x.shape)
-        data_test_x = scaler.transform(data_test_x.reshape(-1, data_test_x.shape[-1])).reshape(data_test_x.shape)
-    else:
-        assert len(np.shape(data_train_x)) == 3
+    data_train_x = data_train_x.reshape(data_train_x.shape[0], data_train_x.shape[1], -1)
+    data_test_x = data_test_x.reshape(data_test_x.shape[0], data_test_x.shape[1], -1)
     #
     ## shape for model
     var_x_shape, var_y_shape = data_train_x[0].shape, data_train_y[0].reshape(-1).shape

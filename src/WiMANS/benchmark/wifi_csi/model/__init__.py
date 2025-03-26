@@ -5,21 +5,23 @@
 #
 ##
 from .strf import run_strf
-from .mlp import run_mlp
-from .lstm import run_lstm
-from .cnn_1d import run_cnn_1d
-from .cnn_2d import run_cnn_2d
-from .cnn_lstm import run_cnn_lstm
-from .ablstm import run_ablstm
-from .that import run_that
+from .mlp import MLP
+from .lstm import LSTMM
+from .cnn_1d import CNN_1D
+from .cnn_2d import CNN_2D
+from .cnn_lstm import CNN_LSTM
+from .ablstm import ABLSTM
+from .that import THAT
+from .runner import runner
 
 #
 ##
 __all__ = ["run_strf",
-           "run_mlp",
-           "run_lstm",
-           "run_cnn_1d",
-           "run_cnn_2d",
-           "run_cnn_lstm",
-           "run_ablstm",
-           "run_that"]
+           "MLP",
+           "LSTMM",
+           "CNN_1D",
+           "CNN_2D",
+           "CNN_LSTM",
+           "ABLSTM",
+           "THAT", 
+           "runner"]

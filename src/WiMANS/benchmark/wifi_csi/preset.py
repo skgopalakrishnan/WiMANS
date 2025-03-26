@@ -19,7 +19,7 @@ preset = {
     "device" : device,
     #
     ## define model
-    "model": "ABLSTM",                                  # "ST-RF", "MLP", "LSTM", "CNN-1D", "CNN-2D", "CLSTM", "ABLSTM", "THAT"
+    "model": "THAT",                                  # "ST-RF", "MLP", "LSTM", "CNN-1D", "CNN-2D", "CLSTM", "ABLSTM", "THAT"
     #
     ## define train-test-split
     "train_test_split": 0.3,                            # ratio of test set
@@ -41,7 +41,7 @@ preset = {
     ## data selection for experiments
     "data": {
         # "num_users": ["0", "1", "2", "3", "4", "5"],    # select number(s) of users, (e.g., ["0", "1"], ["2", "3", "4", "5"])
-        "num_users": ["2"],                               # select number(s) of users, (e.g., ["0", "1"], ["2", "3", "4", "5"])
+        "num_users": ["1"],                               # select number(s) of users, (e.g., ["0", "1"], ["2", "3", "4", "5"])
         "wifi_band": ["2.4", "5"],                        # select WiFi band(s) (e.g., ["2.4"], ["5"], ["2.4", "5"])
         "environment": ["classroom"],                     # select environment(s) (e.g., ["classroom"], ["meeting_room"], ["empty_room"])
         "length": 3000,                                   # default length of CSI (3 seconds capture at 1000 Hz)
@@ -58,17 +58,29 @@ preset = {
     #
     ## encoding of activities and locations
     "encoding": {
+        # "activity": {                                   # encoding of different activities
+        #     "nan":      [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        #     "nothing":  [1, 0, 0, 0, 0, 0, 0, 0, 0],
+        #     "walk":     [0, 1, 0, 0, 0, 0, 0, 0, 0],
+        #     "rotation": [0, 0, 1, 0, 0, 0, 0, 0, 0],
+        #     "jump":     [0, 0, 0, 1, 0, 0, 0, 0, 0],
+        #     "wave":     [0, 0, 0, 0, 1, 0, 0, 0, 0],
+        #     "lie_down": [0, 0, 0, 0, 0, 1, 0, 0, 0],
+        #     "pick_up":  [0, 0, 0, 0, 0, 0, 1, 0, 0],
+        #     "sit_down": [0, 0, 0, 0, 0, 0, 0, 1, 0],
+        #     "stand_up": [0, 0, 0, 0, 0, 0, 0, 0, 1],
+        # },
         "activity": {                                   # encoding of different activities
-            "nan":      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            "nothing":  [1, 0, 0, 0, 0, 0, 0, 0, 0],
-            "walk":     [0, 1, 0, 0, 0, 0, 0, 0, 0],
-            "rotation": [0, 0, 1, 0, 0, 0, 0, 0, 0],
-            "jump":     [0, 0, 0, 1, 0, 0, 0, 0, 0],
-            "wave":     [0, 0, 0, 0, 1, 0, 0, 0, 0],
-            "lie_down": [0, 0, 0, 0, 0, 1, 0, 0, 0],
-            "pick_up":  [0, 0, 0, 0, 0, 0, 1, 0, 0],
-            "sit_down": [0, 0, 0, 0, 0, 0, 0, 1, 0],
-            "stand_up": [0, 0, 0, 0, 0, 0, 0, 0, 1],
+            "nan":      [0],
+            "nothing":  [0], 
+            "walk":     [1],
+            "rotation": [1],
+            "jump":     [1],
+            "wave":     [1],
+            "lie_down": [0],
+            "pick_up":  [1],
+            "sit_down": [0],
+            "stand_up": [0],
         },
         "location": {                                   # encoding of different locations
             "nan":  [0, 0, 0, 0, 0],

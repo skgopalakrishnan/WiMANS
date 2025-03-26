@@ -95,7 +95,7 @@ def reduce_dimensionality(data_x, new_chan=10, new_seq_len=100):
     ## downsample
     x = torch.tensor(data_x).float()
     x = x.permute(0, 2, 1)  # [batch_size, seq_len, channels] -> [batch_size, channels, seq_len]
-    x_downsampled = F.avg_pool1d(x, kernel_size=30, stride=int(cur_seq_len/new_seq_len))
+    x_downsampled = F.avg_pool1d(x, kernel_size=15, stride=int(cur_seq_len/new_seq_len))
     print("Post downsampling shape:", x_downsampled.shape)
     x = x_downsampled.permute(0, 2, 1)
     x = x.numpy()

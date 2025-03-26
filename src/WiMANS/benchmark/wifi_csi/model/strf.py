@@ -18,7 +18,8 @@ def run_strf(data_train_x,
              data_train_y,
              data_test_x,
              data_test_y,
-             var_repeat = 10):
+             var_repeat = 10,
+             preprocessed = False):  # TODO: This function requires extra preprocessing steps
     """
     [description]
     : run WiFi-based model ST-RF
@@ -28,6 +29,7 @@ def run_strf(data_train_x,
     : data_test_x: numpy array, CSI amplitude to test model
     : data_test_y: numpy array, labels to test model
     : var_repeat: int, number of repeated experiments
+    : preprocessed: bool, whether data is preprocessed
     [return]
     : result: dict, results of experiments
     """
@@ -111,4 +113,3 @@ def run_strf(data_train_x,
     result["time_test"] = {"avg": np.mean(result_time_test), "std": np.std(result_time_test)}
     #
     return result
-

@@ -22,5 +22,6 @@ src/WiMANS/benchmark/wifi_csi/model/cnn_2d.py
 src/WiMANS/benchmark/wifi_csi/model/cnn_lstm.py
 src/WiMANS/benchmark/wifi_csi/model/lstm.py
 src/WiMANS/benchmark/wifi_csi/model/mlp.py
+src/WiMANS/benchmark/wifi_csi/model/runner.py
 src/WiMANS/benchmark/wifi_csi/model/strf.py
 src/WiMANS/benchmark/wifi_csi/model/that.py

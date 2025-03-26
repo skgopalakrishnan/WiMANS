@@ -9,17 +9,11 @@ import argparse
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 #
-#
-try:  # try relative imports in case of running as a module
-    from .model import *
-    from .preset import preset
-    from .load_data import load_data_x, load_data_y, encode_data_y
-    from .preprocess import reduce_dimensionality
-except ImportError:  # for debugger
-    from third_party.WiMANS.benchmark.wifi_csi.model import *
-    from third_party.WiMANS.benchmark.wifi_csi.preset import preset
-    from third_party.WiMANS.benchmark.wifi_csi.load_data import load_data_x, load_data_y, encode_data_y
-    from third_party.WiMANS.benchmark.wifi_csi.preprocess import reduce_dimensionality
+## Assuming WiMANS is installed as a package
+from WiMANS.benchmark.wifi_csi.model import *
+from WiMANS.benchmark.wifi_csi.preset import preset
+from WiMANS.benchmark.wifi_csi.load_data import load_data_x, load_data_y, encode_data_y
+from WiMANS.benchmark.wifi_csi.preprocess import reduce_dimensionality
 #
 ##
 def parse_args():
@@ -65,9 +59,9 @@ def run():
     #
     ## preprocess data
     data_x = data_x.reshape(data_x.shape[0], data_x.shape[1], -1)
-    # data_x = reduce_dimensionality(data_x, new_chan=270, new_seq_len=100)
+    data_x = reduce_dimensionality(data_x, new_chan=270, new_seq_len=200)
     ## sub-select features
-    data_x = data_x[:, ::10, ::10]
+    # data_x = data_x[:, ::10, ::10]
     print("Data shape:", data_x.shape)
     #
     ## encode labels
@@ -92,25 +86,28 @@ def run():
     data_test_x = scaler.transform(data_test_x.reshape(-1, data_test_x.shape[-1])).reshape(data_test_x.shape)
     #
     ## select a WiFi-based model
-    if var_model == "ST-RF": run_model = run_strf
-    #
-    elif var_model == "MLP": run_model = run_mlp
-    #
-    elif var_model == "LSTM": run_model = run_lstm
-    #
-    elif var_model == "CNN-1D": run_model = run_cnn_1d
-    #
-    elif var_model == "CNN-2D": run_model = run_cnn_2d
-    #
-    elif var_model == "CLSTM": run_model = run_cnn_lstm
-    #
-    elif var_model == "ABLSTM": run_model = run_ablstm
-    #
-    elif var_model == "THAT": run_model = run_that
+    if var_model != "ST-RF": 
+        if var_model == "MLP": arch = MLP
+        #
+        elif var_model == "LSTM": arch = LSTMM
+        #
+        elif var_model == "CNN-1D": arch = CNN_1D
+        #
+        elif var_model == "CNN-2D": arch = CNN_2D
+        #
+        elif var_model == "CLSTM": arch = CNN_LSTM
+        #
+        elif var_model == "ABLSTM": arch = ABLSTM
+        #
+        elif var_model == "THAT": arch = THAT
     #
     ## run WiFi-based model
-    result = run_model(data_train_x, data_train_y, 
-                       data_val_x, data_val_y, var_repeat, preprocessed=True)
+        result = runner(arch, data_train_x, data_train_y, 
+                        data_val_x, data_val_y, var_repeat, preprocessed=True)
+    #
+    else:
+        result = run_st_rf(data_train_x, data_train_y, 
+                           data_val_x, data_val_y, var_repeat, preprocessed=True)
     #
     ##
     result["model"] = var_model
@@ -128,5 +125,4 @@ def run():
 ##
 if __name__ == "__main__":
     #
-    ##
     run()

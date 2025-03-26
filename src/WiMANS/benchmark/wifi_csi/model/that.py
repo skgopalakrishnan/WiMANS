@@ -1,6 +1,6 @@
 """
 [file]          that.py
-[description]   implement and evaluate WiFi-based model THAT
+[description]   define architecture of THAT model
                 https://github.com/windofshadow/THAT
 """
 #
@@ -180,7 +180,8 @@ class THAT(torch.nn.Module):
     ##
     def __init__(self, 
                  var_x_shape, 
-                 var_y_shape):
+                 var_y_shape, 
+                 var_num_head_enc = 2):
         #
         ##
         super(THAT, self).__init__()
@@ -197,7 +198,7 @@ class THAT(torch.nn.Module):
         var_num_left = 4
         var_dim_left = var_dim_feature
         self.layer_left_encoder = torch.nn.ModuleList([Encoder(var_dim_feature = var_dim_left,
-                                                               var_num_head = 10,
+                                                               var_num_head = var_num_head_enc,
                                                                var_size_cnn = [1, 3, 5])
                                                                for _ in range(var_num_left)])
         #
@@ -209,7 +210,7 @@ class THAT(torch.nn.Module):
         
         self.layer_left_cnn_1 =  torch.nn.Conv1d(in_channels = var_dim_left,
                                                  out_channels = 128,
-                                                 kernel_size = 16)
+                                                 kernel_size = 8)
         #
         self.layer_left_dropout = torch.nn.Dropout(0.5)
         #
@@ -220,7 +221,7 @@ class THAT(torch.nn.Module):
         var_num_right = 1 
         var_dim_right = var_dim_time // 20
         self.layer_right_encoder = torch.nn.ModuleList([Encoder(var_dim_feature = var_dim_right,
-                                                                var_num_head = 10,
+                                                                var_num_head = var_num_head_enc,
                                                                 var_size_cnn = [1, 2, 3])
                                                                 for _ in range(var_num_right)])
         #
@@ -298,135 +299,3 @@ class THAT(torch.nn.Module):
         #
         ##
         return var_output
-
-#
-##
-def run_that(data_train_x,
-             data_train_y,
-             data_test_x,
-             data_test_y,
-             var_repeat = 10):
-    """
-    [description]
-    : run WiFi-based model THAT
-    [parameter]
-    : data_train_x: numpy array, CSI amplitude to train model
-    : data_train_y: numpy array, labels to train model
-    : data_test_x: numpy array, CSI amplitude to test model
-    : data_test_y: numpy array, labels to test model
-    : var_repeat: int, number of repeated experiments
-    [return]
-    : result: dict, results of experiments
-    """
-    #
-    ##
-    device = torch.device(preset["device"])
-    #
-    ##
-    ## ============================================ Preprocess ============================================
-    #
-    ##
-    data_train_x = data_train_x.reshape(data_train_x.shape[0], data_train_x.shape[1], -1)
-    data_test_x = data_test_x.reshape(data_test_x.shape[0], data_test_x.shape[1], -1)
-    #
-    ## shape for model
-    var_x_shape, var_y_shape = data_train_x[0].shape, data_train_y[0].reshape(-1).shape
-    #
-    data_train_set = TensorDataset(torch.from_numpy(data_train_x), torch.from_numpy(data_train_y))
-    data_test_set = TensorDataset(torch.from_numpy(data_test_x), torch.from_numpy(data_test_y))
-    #
-    ##
-    ## ========================================= Train & Evaluate =========================================
-    #
-    ##
-    result = {}
-    result_accuracy = []
-    result_time_train = []
-    result_time_test = []
-    #
-    ##
-    var_macs, var_params = get_model_complexity_info(THAT(var_x_shape, var_y_shape), 
-                                                     var_x_shape, as_strings = False)
-    #
-    print("Parameters:", var_params, "- FLOPs:", var_macs * 2)
-    #
-    ##
-    for var_r in range(var_repeat):
-        #
-        ##
-        print("Repeat", var_r)
-        #
-        torch.random.manual_seed(var_r + 39)
-        #
-        model_that = THAT(var_x_shape, var_y_shape).to(device)
-        #
-        optimizer = torch.optim.Adam(model_that.parameters(), 
-                                     lr = preset["nn"]["lr"],
-                                     weight_decay = 0)
-        #
-        loss = torch.nn.BCEWithLogitsLoss(pos_weight = torch.tensor([4] * var_y_shape[-1]).to(device))
-        #
-        var_time_0 = time.time()
-        #
-        ## ---------------------------------------- Train -----------------------------------------
-        #
-        var_best_weight = train(model = model_that, 
-                                optimizer = optimizer, 
-                                loss = loss, 
-                                data_train_set = data_train_set,
-                                data_test_set = data_test_set,
-                                var_threshold = preset["nn"]["threshold"],
-                                var_batch_size = preset["nn"]["batch_size"],
-                                var_epochs = preset["nn"]["epoch"],
-                                device = device,
-                                model_type = "THAT",
-                                run_ = var_r,
-                                )
-        #
-        var_time_1 = time.time()
-        #
-        ## ---------------------------------------- Test ------------------------------------------
-        #
-        model_that.load_state_dict(var_best_weight)
-        #
-        with torch.no_grad():
-            predict_test_y = model_that(torch.from_numpy(data_test_x).to(device))
-        #
-        predict_test_y = (torch.sigmoid(predict_test_y) > preset["nn"]["threshold"]).float()
-        predict_test_y = predict_test_y.detach().cpu().numpy()
-        #
-        var_time_2 = time.time()
-        #
-        ## -------------------------------------- Evaluate ----------------------------------------
-        #
-        ##
-        data_test_y_c = data_test_y.reshape(-1, data_test_y.shape[-1])
-        predict_test_y_c = predict_test_y.reshape(-1, data_test_y.shape[-1])
-        #
-        ## Accuracy
-        result_acc = accuracy_score(data_test_y_c.astype(int), 
-                                    predict_test_y_c.astype(int))
-        #
-        ## Report
-        result_dict = classification_report(data_test_y_c, 
-                                            predict_test_y_c, 
-                                            digits = 6, 
-                                            zero_division = 0, 
-                                            output_dict = True)
-        #
-        result["repeat_" + str(var_r)] = result_dict
-        #
-        result_accuracy.append(result_acc)
-        result_time_train.append(var_time_1 - var_time_0)
-        result_time_test.append(var_time_2 - var_time_1)
-        #
-        print("repeat_" + str(var_r), result_accuracy)
-        print(result)
-    #
-    ##
-    result["accuracy"] = {"avg": np.mean(result_accuracy), "std": np.std(result_accuracy)}
-    result["time_train"] = {"avg": np.mean(result_time_train), "std": np.std(result_time_train)}
-    result["time_test"] = {"avg": np.mean(result_time_test), "std": np.std(result_time_test)}
-    result["complexity"] = {"parameter": var_params, "flops": var_macs * 2}
-    #
-    return result

@@ -1,6 +1,6 @@
 """
-[file]          cnn_1d.py
-[description]   implement and evaluate WiFi-based model CNN-1D
+[file]          runner.py
+[description]   generic script to implement and evaluate WiFi-based models
 """
 #
 ##
@@ -14,105 +14,26 @@ from sklearn.metrics import classification_report, accuracy_score
 #
 from ..train import train
 from ..preset import preset
-
 #
 ##
-## ------------------------------------------------------------------------------------------ ##
-## --------------------------------------- CNN-1D ------------------------------------------- ##
-## ------------------------------------------------------------------------------------------ ##
-class CNN_1D(torch.nn.Module):
-    #
-    ##
-    def __init__(self,
-                 var_x_shape,
-                 var_y_shape):
-        #
-        ##
-        super(CNN_1D, self).__init__()
-        #
-        var_dim_input = var_x_shape[-1]
-        var_dim_output = var_y_shape[-1]
-        #
-        self.layer_norm = torch.nn.BatchNorm1d(var_dim_input)
-        #
-        ##
-        self.layer_cnn_1d_0 = torch.nn.Conv1d(in_channels = var_dim_input, 
-                                              out_channels = 128,
-                                              kernel_size = 29,
-                                              stride = 13)
-        #
-        self.layer_cnn_1d_1 = torch.nn.Conv1d(in_channels = 128, 
-                                              out_channels = 256,
-                                              kernel_size = 15,
-                                              stride = 7)
-        #
-        self.layer_cnn_1d_2 = torch.nn.Conv1d(in_channels = 256, 
-                                              out_channels = 512,
-                                              kernel_size = 3,
-                                              stride = 1)
-        #
-        ##
-        self.layer_linear = torch.nn.Linear(512, var_dim_output)
-        #
-        ##
-        self.layer_dropout = torch.nn.Dropout(0.2)
-        #
-        self.layer_relu = torch.nn.ReLU()
-        #
-        torch.nn.init.xavier_uniform_(self.layer_cnn_1d_0.weight)
-        torch.nn.init.xavier_uniform_(self.layer_cnn_1d_1.weight)
-        torch.nn.init.xavier_uniform_(self.layer_cnn_1d_2.weight)
-        torch.nn.init.xavier_uniform_(self.layer_linear.weight)
-
-    #
-    ##
-    def forward(self,
-                var_input):
-        #
-        ##
-        var_t = var_input
-        #
-        var_t = torch.permute(var_t, (0, 2, 1))
-        var_t = self.layer_norm(var_t)
-        #
-        var_t = self.layer_cnn_1d_0(var_t)
-        var_t = self.layer_relu(var_t)
-        var_t = self.layer_dropout(var_t)
-
-        var_t = self.layer_cnn_1d_1(var_t)
-        var_t = self.layer_relu(var_t)
-        var_t = self.layer_dropout(var_t)
-
-        var_t = self.layer_cnn_1d_2(var_t)
-        var_t = self.layer_relu(var_t)
-        var_t = self.layer_dropout(var_t)
-
-        var_t = torch.mean(var_t, dim = -1)
-        
-        var_t = self.layer_dropout(var_t)
-
-        var_t = self.layer_linear(var_t)
-        #
-        var_output = var_t
-        #
-        return var_output
-
-#
-##
-def run_cnn_1d(data_train_x,
-               data_train_y,
-               data_test_x,
-               data_test_y,
-               var_repeat = 10):
+def runner(Model,
+           data_train_x,
+           data_train_y,
+           data_test_x,
+           data_test_y,
+           var_repeat = 10,
+           preprocessed = False):
     """
     [description]
-    : run WiFi-based model CNN-1D
+    : run WiFi-based model
     [parameter]
+    : model: class, WiFi-based model to create instance
     : data_train_x: numpy array, CSI amplitude to train model
     : data_train_y: numpy array, labels to train model
     : data_test_x: numpy array, CSI amplitude to test model
     : data_test_y: numpy array, labels to test model
     : var_repeat: int, number of repeated experiments
+    : preprocessed: bool, whether data is preprocessed
     [return]
     : result: dict, results of experiments
     """
@@ -120,18 +41,28 @@ def run_cnn_1d(data_train_x,
     ##
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #
-    ##
+    #
     ## ============================================ Preprocess ============================================
     #
-    ##
-    data_train_x = data_train_x.reshape(data_train_x.shape[0], data_train_x.shape[1], -1)
-    data_test_x = data_test_x.reshape(data_test_x.shape[0], data_test_x.shape[1], -1)
+    #
+    if not preprocessed:
+        data_train_x = data_train_x.reshape(data_train_x.shape[0], data_train_x.shape[1], -1)
+        data_test_x = data_test_x.reshape(data_test_x.shape[0], data_test_x.shape[1], -1)
+        #
+        scaler = StandardScaler()
+        data_train_x = scaler.fit_transform(data_train_x.reshape(-1, data_train_x.shape[-1])).reshape(data_train_x.shape)
+        data_test_x = scaler.transform(data_test_x.reshape(-1, data_test_x.shape[-1])).reshape(data_test_x.shape)
+        #
+        ## reduce dimensionality. # TODO add functionality to send in params for dimensionality reduction
+        data = np.concatenate([data_train_x, data_test_x], axis = 0)
+        data = reduce_dimensionality(data, new_chan = 10, new_seq_len = 50)
+        data_train_x, data_test_x = data[:data_train_x.shape[0]], data[data_train_x.shape[0]:]
     #
     ## shape for model
     var_x_shape, var_y_shape = data_train_x[0].shape, data_train_y[0].reshape(-1).shape
     #
     data_train_set = TensorDataset(torch.from_numpy(data_train_x), torch.from_numpy(data_train_y))
-    data_test_set = TensorDataset(torch.from_numpy(data_test_x), torch.from_numpy(data_test_y))
+    data_test_set = TensorDataset(torch.from_numpy(data_test_x), torch.from_numpy(data_test_y))    
     #
     ##
     ## ========================================= Train & Evaluate =========================================
@@ -143,7 +74,7 @@ def run_cnn_1d(data_train_x,
     result_time_test = []
     #
     ##
-    var_macs, var_params = get_model_complexity_info(CNN_1D(var_x_shape, var_y_shape), 
+    var_macs, var_params = get_model_complexity_info(Model(var_x_shape, var_y_shape), 
                                                      var_x_shape, as_strings = False)
     #
     print("Parameters:", var_params, "- FLOPs:", var_macs * 2)
@@ -156,9 +87,9 @@ def run_cnn_1d(data_train_x,
         #
         torch.random.manual_seed(var_r + 39)
         #
-        model_cnn_1d = torch.compile(CNN_1D(var_x_shape, var_y_shape).to(device))
+        model = torch.compile(Model(var_x_shape, var_y_shape).to(device))
         #
-        optimizer = torch.optim.Adam(model_cnn_1d.parameters(), 
+        optimizer = torch.optim.Adam(model.parameters(), 
                                      lr = preset["nn"]["lr"],
                                      weight_decay = 0)
         #
@@ -168,7 +99,7 @@ def run_cnn_1d(data_train_x,
         #
         ## ---------------------------------------- Train -----------------------------------------
         #
-        var_best_weight = train(model = model_cnn_1d, 
+        var_best_weight = train(model = model, 
                                 optimizer = optimizer, 
                                 loss = loss, 
                                 data_train_set = data_train_set,
@@ -176,16 +107,19 @@ def run_cnn_1d(data_train_x,
                                 var_threshold = preset["nn"]["threshold"],
                                 var_batch_size = preset["nn"]["batch_size"],
                                 var_epochs = preset["nn"]["epoch"],
-                                device = device)
+                                device = device,
+                                model_type=Model.__name__,
+                                run_ = var_r,
+                                )
         #
         var_time_1 = time.time()
         #
         ## ---------------------------------------- Test ------------------------------------------
         #
-        model_cnn_1d.load_state_dict(var_best_weight)
+        model.load_state_dict(var_best_weight)
         #
         with torch.no_grad():
-            predict_test_y = model_cnn_1d(torch.from_numpy(data_test_x).to(device))
+            predict_test_y = model(torch.from_numpy(data_test_x).to(device))
         #
         predict_test_y = (torch.sigmoid(predict_test_y) > preset["nn"]["threshold"]).float()
         predict_test_y = predict_test_y.detach().cpu().numpy()

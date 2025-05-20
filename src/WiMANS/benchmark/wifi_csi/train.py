@@ -8,6 +8,7 @@ import os
 import time
 import torch
 import torch._dynamo
+from pathlib import Path
 #
 from torch import device
 from torch.nn import Module
@@ -24,6 +25,16 @@ torch.set_float32_matmul_precision("high")
 torch._dynamo.config.cache_size_limit = 65536
 
 #
+def log_gradients(model):
+    total_norm = 0
+    for p in model.parameters():
+        if p.grad is not None:
+            param_norm = p.grad.detach().data.norm(2)
+            total_norm += param_norm.item() ** 2
+    total_norm = total_norm ** 0.5
+    print("Gradient norm: {:.5f}".format(total_norm))
+
+#
 ##
 def train(model: Module,
           optimizer: Optimizer,
@@ -35,7 +46,8 @@ def train(model: Module,
           var_epochs: int,
           device: device,
           model_type: str,
-          run_: int):
+          run_: int,
+          **kwargs):
     
     """
     [description]
@@ -57,16 +69,28 @@ def train(model: Module,
     """
     #
     ##
+    # Pop save folder from kwargs
+    save_path = Path(kwargs.pop("save_path", preset["path"]["model_wt"])).resolve()
+    print(f"Resolved path: {save_path}, exists: {save_path.exists()}")
+    #
+    ## ---------------------------------------- Prepare --------------------------------------
+    if isinstance(loss, torch.nn.modules.loss.MSELoss):
+        task = "reconstruction"
+    else:
+        task = "classification"
     data_train_loader = DataLoader(data_train_set, var_batch_size, shuffle = True, pin_memory = True)
     data_test_loader = DataLoader(data_test_set, len(data_test_set))
     #
     ##
-    var_best_accuracy = 0
+    var_best_accuracy = -1
+    var_best_loss = float("inf")
     var_best_weight = None
-    trials = 0  # counter for early stopping  
+    trials = 0  # counter for early stopping
     #
     ##
     for var_epoch in range(var_epochs):
+        ctr = 0 
+        print(var_epoch)
         #
         ## ---------------------------------------- Train -----------------------------------------
         #
@@ -76,23 +100,36 @@ def train(model: Module,
         model.train()
         #
         for data_batch in data_train_loader:
+            print(ctr)
             #
             ##
+            # if torch.isnan(data_batch[0]).any() or torch.isinf(data_batch[0]).any():
+            #     print("Warning: problematic batch detected!")
+            #
             data_batch_x, data_batch_y = data_batch
             data_batch_x = data_batch_x.to(device)
             data_batch_y = data_batch_y.to(device)
             #
             predict_train_y = model(data_batch_x)
             #
-            var_loss_train = loss(predict_train_y, 
-                                  data_batch_y.reshape(data_batch_y.shape[0], -1).float())
+            if task == "reconstruction":  # assuming task is reconstruction
+                var_loss_train = loss(predict_train_y, data_batch_y)
+            else:  # assuming task is classification
+                var_loss_train = loss(predict_train_y, 
+                                    data_batch_y.reshape(data_batch_y.shape[0], -1).float())
             #
             optimizer.zero_grad()
             #
             var_loss_train.backward()
             #
+            log_gradients(model)
+            # Apply gradient clipping:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+            #
             optimizer.step()
             #
+            ctr += 1
+            # prev_batch = data_batch[0].clone().detach()
         ## -------------------------------------- Evaluate ----------------------------------------
         #
         ## Evaluate on training set
@@ -110,10 +147,12 @@ def train(model: Module,
               "- Test Accuracy %.6f"%var_accuracy_test)
         #
         ##
-        if var_accuracy_test > var_best_accuracy:
+        if (task == "classification" and (var_accuracy_test > var_best_accuracy)) or \
+            (task == "reconstruction" and (var_loss_test < var_best_loss)):
             #
             trials = 0
             var_best_accuracy = var_accuracy_test
+            var_best_loss = var_loss_test
             var_best_weight = deepcopy(model.state_dict())
         else:
             #
@@ -126,9 +165,9 @@ def train(model: Module,
     print("Best accuracy:", var_best_accuracy)
     print("Best loss:", var_loss_test)
     #
-    if (run_+1) % 2 == 0:  # save the best weights after every 2 runs
+    if ((run_+1) % 2 == 0) or task == "reconstruction":  # save the best weights after every 2 runs
         save_file_name = model_type + "_best_weight_run-" + str(run_+1) + ".pt"
-        torch.save(var_best_weight, os.path.join(preset["path"]["model_wt"], save_file_name))
+        torch.save(var_best_weight, os.path.join(save_path, save_file_name))
 
     return var_best_weight
 
@@ -163,19 +202,22 @@ def evaluate(model: Module,
             #
             predict_test_y = model(data_test_x)
             #
-            var_loss_test.append(loss(predict_test_y, 
-                                        data_test_y.reshape(data_test_y.shape[0], -1).float()))
-            #
-            predict_test_y = (torch.sigmoid(predict_test_y) > var_threshold).float()
-            #
-            data_test_y = data_test_y.detach().cpu().numpy()
-            predict_test_y = predict_test_y.detach().cpu().numpy()
-            #
-            predict_test_y = predict_test_y.reshape(data_test_y.shape[0], -1)
-            data_test_y = data_test_y.reshape(data_test_y.shape[0], -1)
-            #
-            var_accuracy_test.append(accuracy_score(data_test_y.astype(int), 
-                                                    predict_test_y.astype(int)))
+            if isinstance(loss, torch.nn.modules.loss.MSELoss):  # assuming task is reconstruction
+                var_loss_test.append(loss(predict_test_y, data_test_y))
+                var_accuracy_test.append(0)
+            else:  # assuming task is classification
+                var_loss_test.append(loss(predict_test_y, 
+                                            data_test_y.reshape(data_test_y.shape[0], -1).float()))
+                #
+                predict_test_y = (torch.sigmoid(predict_test_y) > var_threshold).float()
+                data_test_y = data_test_y.detach().cpu().numpy()
+                predict_test_y = predict_test_y.detach().cpu().numpy()
+
+                predict_test_y = predict_test_y.reshape(data_test_y.shape[0], -1)
+                data_test_y = data_test_y.reshape(data_test_y.shape[0], -1)
+                #
+                var_accuracy_test.append(accuracy_score(data_test_y.astype(int), 
+                                                        predict_test_y.astype(int)))
     var_accuracy_test = sum(var_accuracy_test) / len(var_accuracy_test)
     var_loss_test = sum(var_loss_test) / len(var_loss_test)
     #

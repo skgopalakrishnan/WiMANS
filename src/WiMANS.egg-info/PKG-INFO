@@ -1,7 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: WiMANS
 Version: 1.1
 Summary: A Benchmark Dataset for WiFi-based Multi-user Activity Sensing
 Home-page: https://github.com/skgopalakrishnan/WiMANS
 License: MIT
 Requires-Python: >=3
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-python
+Dynamic: summary

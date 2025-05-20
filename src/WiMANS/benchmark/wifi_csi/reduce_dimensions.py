@@ -15,13 +15,15 @@ import torch
 from torch.utils.data import TensorDataset
 from ptflops import get_model_complexity_info
 
+# torch.autograd.set_detect_anomaly(True)
+
 ##########
 ## Local imports
 
 from WiMANS.benchmark.wifi_csi.load_data import load_data_x, load_data_y, encode_data_y
 from WiMANS.benchmark.wifi_csi.train import train
 
-sys.path.append(os.path.abspath("/home/sgopalakrishnan/Documents/Projects/Adversarial_CSI/src"))
+sys.path.append(os.path.abspath("/cs/academic/phd3/gopalak/Documents/Projects/Adversarial_CSI/src"))
 from models.modules import LSTMAutoEncoder
 
 ############################################################################################################
@@ -54,10 +56,10 @@ preset = {
     #
     ## path of data and model weights
     "path": {
-        "data_x": "/home/sgopalakrishnan/Documents/Projects/Adversarial_CSI/data/WiMANS/dataset/wifi_csi/amp",                     # directory of CSI amplitude files
-        "data_y": "/home/sgopalakrishnan/Documents/Projects/Adversarial_CSI/data/WiMANS/dataset/annotation.csv",                   # path of annotation file
-        "save": "/home/sgopalakrishnan/Documents/Projects/Adversarial_CSI/data/WiMANS/dataset/result.json",                        # path to save results
-        "model_wt": "/home/sgopalakrishnan/Documents/Projects/Adversarial_CSI/third_party/WiMANS/src/WiMANS/benchmark/saved_models", # path to save results
+        "data_x":   "/cs/academic/phd3/gopalak/Documents/Projects/Adversarial_CSI/data/WiMANS/dataset/wifi_csi/amp",                       # directory of CSI amplitude files
+        "data_y":   "/cs/academic/phd3/gopalak/Documents/Projects/Adversarial_CSI/data/WiMANS/dataset/annotation.csv",                     # path of annotation file
+        "save":     "/cs/academic/phd3/gopalak/Documents/Projects/Adversarial_CSI/data/WiMANS/dataset/result.json",                        # path to save results
+        "model_wt": "/cs/academic/phd3/gopalak/Documents/Projects/Adversarial_CSI/third_party/WiMANS/src/WiMANS/benchmark/saved_models",   # path to save results
     },
     #
     ## data selection for experiments
@@ -70,9 +72,9 @@ preset = {
     #
     ## hyperparameters of models
     "nn": {
-        "lr": 1e-3,                                     # learning rate
+        "lr": 1e-4,                                     # learning rate
         "epoch": 200,                                   # number of epochs
-        "batch_size": 64,                               # batch size
+        "batch_size": 10,                                # batch size
         "threshold": 0.5,                               # threshold to binarize sigmoid outputs
         "early_stop": 1000,                             # early stopping patience
     },
@@ -80,14 +82,14 @@ preset = {
         "input_size" : 270, # input size: number of channels
         "hidden_size_enc" : 32, # hidden size of encoder for dimensionality reduction
         "hidden_size_dec" : 32, # hidden size of encoder for dimensionality reduction
-        "seq_len": 3000,  # length of the CSI data sequences
+        "seq_len": 300,  # length of the CSI data sequences
         "attention": True  # whether to use attention
         }
     }
 
 ##########
 ## set seeds
-seed = 39
+seed = 42
 torch.manual_seed(seed)
 np.random.seed(seed)
 
@@ -107,12 +109,15 @@ def read_dataset():
     del data_pd_y  # clear up memory
 
     ## load CSI amplitude
-    data_x = load_data_x(preset["path"]["data_x"], var_label_list)
+    data_x = load_data_x(preset["path"]["data_x"], var_label_list, debug=True)
 
     ## preprocess data
     data_x = data_x.reshape(data_x.shape[0], data_x.shape[1], -1)
+    
+    print("Sub-sampling data_x...")
+    data_x = data_x[:, ::10, :]
+    
     print("Data shape:", data_x.shape)
-
     return data_x
 
 ##########

@@ -25,6 +25,16 @@ torch.set_float32_matmul_precision("high")
 torch._dynamo.config.cache_size_limit = 65536
 
 #
+def log_gradients(model):
+    total_norm = 0
+    for p in model.parameters():
+        if p.grad is not None:
+            param_norm = p.grad.detach().data.norm(2)
+            total_norm += param_norm.item() ** 2
+    total_norm = total_norm ** 0.5
+    print("Gradient norm: {:.5f}".format(total_norm))
+
+#
 ##
 def train(model: Module,
           optimizer: Optimizer,
@@ -75,10 +85,12 @@ def train(model: Module,
     var_best_accuracy = -1
     var_best_loss = float("inf")
     var_best_weight = None
-    trials = 0  # counter for early stopping  
+    trials = 0  # counter for early stopping
     #
     ##
     for var_epoch in range(var_epochs):
+        ctr = 0 
+        print(var_epoch)
         #
         ## ---------------------------------------- Train -----------------------------------------
         #
@@ -88,8 +100,12 @@ def train(model: Module,
         model.train()
         #
         for data_batch in data_train_loader:
+            print(ctr)
             #
             ##
+            # if torch.isnan(data_batch[0]).any() or torch.isinf(data_batch[0]).any():
+            #     print("Warning: problematic batch detected!")
+            #
             data_batch_x, data_batch_y = data_batch
             data_batch_x = data_batch_x.to(device)
             data_batch_y = data_batch_y.to(device)
@@ -106,8 +122,14 @@ def train(model: Module,
             #
             var_loss_train.backward()
             #
+            log_gradients(model)
+            # Apply gradient clipping:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+            #
             optimizer.step()
             #
+            ctr += 1
+            # prev_batch = data_batch[0].clone().detach()
         ## -------------------------------------- Evaluate ----------------------------------------
         #
         ## Evaluate on training set

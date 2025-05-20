@@ -12,6 +12,7 @@ src/WiMANS/benchmark/wifi_csi/inference.py
 src/WiMANS/benchmark/wifi_csi/load_data.py
 src/WiMANS/benchmark/wifi_csi/preprocess.py
 src/WiMANS/benchmark/wifi_csi/preset.py
+src/WiMANS/benchmark/wifi_csi/reduce_dimensions.py
 src/WiMANS/benchmark/wifi_csi/run.py
 src/WiMANS/benchmark/wifi_csi/train.py
 src/WiMANS/benchmark/wifi_csi/utils.py

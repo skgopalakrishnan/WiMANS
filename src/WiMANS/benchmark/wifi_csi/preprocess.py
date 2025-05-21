@@ -27,12 +27,31 @@ def mat_to_amp(data_mat):
     ## 
     var_length = data_mat["trace"].shape[0]
     #
-    data_csi_amp = [abs(data_mat["trace"][var_t][0][0][0][-1]) for var_t in range(var_length)]
+    data_csi_amp = [abs(data_mat["trace"][var_t][0][0][0][-1]) for var_t in range(var_length)]  # lists of (tx, rx, subcarrier)
     #
     data_csi_amp = np.array(data_csi_amp, dtype = np.float32)
     #
     return data_csi_amp
-
+#
+##
+def extract_csi_phase(data_mat):  # TODO: check if this is correct
+    """
+    [description]
+    : calculate phase of raw WiFi CSI data
+    [parameter]
+    : data_mat: dict, raw WiFi CSI data from *.mat files
+    [return]
+    : data_csi_phase: numpy array, CSI phase
+    """
+    #
+    ## 
+    var_length = data_mat["trace"].shape[0]
+    #
+    data_csi_phase = [np.angle(data_mat["trace"][var_t][0][0][0][-1]) for var_t in range(var_length)]
+    #
+    data_csi_phase = np.array(data_csi_phase, dtype = np.float32)
+    #
+    return data_csi_phase
 #
 ##
 def extract_csi_amp(var_dir_mat, 
@@ -95,7 +114,7 @@ def reduce_dimensionality(data_x, new_chan=10, new_seq_len=100):
     ## downsample
     x = torch.tensor(data_x).float()
     x = x.permute(0, 2, 1)  # [batch_size, seq_len, channels] -> [batch_size, channels, seq_len]
-    x_downsampled = F.avg_pool1d(x, kernel_size=30, stride=int(cur_seq_len/new_seq_len))
+    x_downsampled = F.avg_pool1d(x, kernel_size=15, stride=int(cur_seq_len/new_seq_len))
     print("Post downsampling shape:", x_downsampled.shape)
     x = x_downsampled.permute(0, 2, 1)
     x = x.numpy()
@@ -119,5 +138,13 @@ if __name__ == "__main__":
     ##
     var_args = parse_args()
     #
-    extract_csi_amp(var_dir_mat = var_args.dir_mat, 
-                    var_dir_amp = var_args.dir_amp)
+    dir_mat = "/home/sgopalakrishnan/Documents/Projects/Adversarial_CSI/data/WiMANS/dataset/wifi_csi/mat"
+    dir_amp = "/home/sgopalakrishnan/Documents/Projects/Adversarial_CSI/data/WiMANS/dataset/wifi_csi/amp2"  # don't affect original data
+    dir_phase = "/home/sgopalakrishnan/Documents/Projects/Adversarial_CSI/data/WiMANS/dataset/wifi_csi/phase"
+    
+    extract_csi_amp(var_dir_mat = dir_mat, 
+                    var_dir_amp = dir_amp)
+    
+    # extract_csi_phase(var_dir_mat = dir_mat,
+    #                   var_dir_phase = dir_phase)
+   

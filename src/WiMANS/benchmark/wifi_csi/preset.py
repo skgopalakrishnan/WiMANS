@@ -19,52 +19,68 @@ preset = {
     "device" : device,
     #
     ## define model
-    "model": "THAT",                                    # "ST-RF", "MLP", "LSTM", "CNN-1D", "CNN-2D", "CLSTM", "ABLSTM", "THAT"
+    "model": "THAT",                                  # "ST-RF", "MLP", "LSTM", "CNN-1D", "CNN-2D", "CLSTM", "ABLSTM", "THAT"
+    #
+    ## define train-test-split
+    "train_test_split": 0.3,                            # ratio of test set
     #
     ## define task
     "task": "activity",                                 # "identity", "activity", "location"
     #
     ## number of repeated experiments
-    "repeat": 4,
+    "repeat": 1,
     #
     ## path of data and model weights
     "path": {
-        "data_x": "/Users/shreevanth/Documents/PhD_work/Adversarial_CSI/data/WiMANS/dataset/wifi_csi/amp",                     # directory of CSI amplitude files
-        "data_y": "/Users/shreevanth/Documents/PhD_work/Adversarial_CSI/data/WiMANS/dataset/annotation.csv",                   # path of annotation file
-        "save": "/Users/shreevanth/Documents/PhD_work/Adversarial_CSI/data/WiMANS/dataset/result.json",                        # path to save results
-        "model_wt": "/Users/shreevanth/Documents/PhD_work/Adversarial_CSI/third_party/WiMANS/WiMANS/benchmark/wifi_csi/saved_models", # path to save results
+        "data_x": "./data/WiMANS/dataset/wifi_csi/amp",                     # directory of CSI amplitude files
+        "data_y": "./data/WiMANS/dataset/annotation.csv",                   # path of annotation file
+        "save": "./data/WiMANS/dataset/result.json",                        # path to save results
+        "model_wt": "./third_party/WiMANS/benchmark/wifi_csi/saved_models", # path to save results
     },
     #
     ## data selection for experiments
     "data": {
         # "num_users": ["0", "1", "2", "3", "4", "5"],    # select number(s) of users, (e.g., ["0", "1"], ["2", "3", "4", "5"])
-        "num_users": ["1"],                             # select number(s) of users, (e.g., ["0", "1"], ["2", "3", "4", "5"])
-        "wifi_band": ["2.4"],                           # select WiFi band(s) (e.g., ["2.4"], ["5"], ["2.4", "5"])
-        "environment": ["classroom"],                   # select environment(s) (e.g., ["classroom"], ["meeting_room"], ["empty_room"])
-        "length": 3000,                                 # default length of CSI (3 seconds capture at 1000 Hz)
+        "num_users": ["1"],                               # select number(s) of users, (e.g., ["0", "1"], ["2", "3", "4", "5"])
+        "wifi_band": ["2.4", "5"],                        # select WiFi band(s) (e.g., ["2.4"], ["5"], ["2.4", "5"])
+        "environment": ["classroom"],                     # select environment(s) (e.g., ["classroom"], ["meeting_room"], ["empty_room"])
+        "length": 3000,                                   # default length of CSI (3 seconds capture at 1000 Hz)
     },
     #
     ## hyperparameters of models
     "nn": {
         "lr": 1e-3,                                     # learning rate
-        "epoch": 2,                                   # number of epochs
-        "batch_size": 128,                              # batch size
+        "epoch": 200,                                   # number of epochs
+        "batch_size": 64,                               # batch size
         "threshold": 0.5,                               # threshold to binarize sigmoid outputs
+        "early_stop": 1000,                               # early stopping patience
     },
     #
     ## encoding of activities and locations
     "encoding": {
+        # "activity": {                                   # encoding of different activities
+        #     "nan":      [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        #     "nothing":  [1, 0, 0, 0, 0, 0, 0, 0, 0],
+        #     "walk":     [0, 1, 0, 0, 0, 0, 0, 0, 0],
+        #     "rotation": [0, 0, 1, 0, 0, 0, 0, 0, 0],
+        #     "jump":     [0, 0, 0, 1, 0, 0, 0, 0, 0],
+        #     "wave":     [0, 0, 0, 0, 1, 0, 0, 0, 0],
+        #     "lie_down": [0, 0, 0, 0, 0, 1, 0, 0, 0],
+        #     "pick_up":  [0, 0, 0, 0, 0, 0, 1, 0, 0],
+        #     "sit_down": [0, 0, 0, 0, 0, 0, 0, 1, 0],
+        #     "stand_up": [0, 0, 0, 0, 0, 0, 0, 0, 1],
+        # },
         "activity": {                                   # encoding of different activities
-            "nan":      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            "nothing":  [1, 0, 0, 0, 0, 0, 0, 0, 0],
-            "walk":     [0, 1, 0, 0, 0, 0, 0, 0, 0],
-            "rotation": [0, 0, 1, 0, 0, 0, 0, 0, 0],
-            "jump":     [0, 0, 0, 1, 0, 0, 0, 0, 0],
-            "wave":     [0, 0, 0, 0, 1, 0, 0, 0, 0],
-            "lie_down": [0, 0, 0, 0, 0, 1, 0, 0, 0],
-            "pick_up":  [0, 0, 0, 0, 0, 0, 1, 0, 0],
-            "sit_down": [0, 0, 0, 0, 0, 0, 0, 1, 0],
-            "stand_up": [0, 0, 0, 0, 0, 0, 0, 0, 1],
+            "nan":      [0],
+            "nothing":  [0], 
+            "walk":     [1],
+            "rotation": [1],
+            "jump":     [1],
+            "wave":     [1],
+            "lie_down": [0],
+            "pick_up":  [1],
+            "sit_down": [0],
+            "stand_up": [0],
         },
         "location": {                                   # encoding of different locations
             "nan":  [0, 0, 0, 0, 0],

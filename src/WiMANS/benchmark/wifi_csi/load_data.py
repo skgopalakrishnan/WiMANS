@@ -46,7 +46,8 @@ def load_data_y(var_path_data_y,
 #
 ##
 def load_data_x(var_path_data_x, 
-                var_label_list):
+                var_label_list, 
+                debug: bool = False):
     """
     [description]
     : load CSI amplitude (*.npy)
@@ -54,6 +55,7 @@ def load_data_x(var_path_data_x,
     [parameter]
     : var_path_data_x: string, directory of CSI amplitude files
     : var_label_list: list, selected labels
+    : debug: bool, debug mode
     [return]
     : data_x: numpy array, CSI amplitude
     """
@@ -62,6 +64,9 @@ def load_data_x(var_path_data_x,
     var_path_list = [os.path.join(var_path_data_x, var_label + ".npy") for var_label in var_label_list]
     #
     data_x = []
+    #
+    if debug:
+        var_path_list = var_path_list[:100]
     #
     for var_path in var_path_list:
         #
